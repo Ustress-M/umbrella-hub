@@ -158,6 +158,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # VPS 의 /opt/umbrella-hub/docker-compose.yml 이 구버전으로 남아있으면
+      # 이미지 경로(예: your-username → ustress-m) 수정이 반영되지 않으므로,
+      # 배포마다 레포의 최신 compose 파일을 VPS 로 덮어쓴다.
+      - name: docker-compose.yml 을 VPS 로 동기화
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: docker-compose.yml
+          target: /opt/umbrella-hub
+          overwrite: true
+
       - name: VPS 배포
         uses: appleboy/ssh-action@v1
         env:
@@ -178,6 +191,7 @@ jobs:
             docker pull "${IMAGE}:latest"
 
             # 2) 앱 재시작 (DB 마이그레이션은 이전 job 에서 이미 적용됨)
+            #    APP_IMAGE 는 compose 파일의 ${APP_IMAGE:-...} 기본값을 덮어씀.
             APP_IMAGE="${IMAGE}" docker compose up -d --no-deps app
 
             # 3) 오래된 이미지 정리

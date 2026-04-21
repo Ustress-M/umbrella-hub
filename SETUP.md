@@ -130,11 +130,11 @@ git commit -m "chore: initial project setup"
 # → Repository name: umbrella-hub
 # → Private 또는 Public 선택 후 Create repository
 
-# 4. 원격 연결 & Push (your-username은 본인 GitHub 아이디로 교체)
-git remote add origin https://github.com/your-username/umbrella-hub.git
+# 4. 원격 연결 & Push (ustress-m 자리는 본인 GitHub 아이디로 교체)
+git remote add origin https://github.com/ustress-m/umbrella-hub.git
 
 # 이미 origin이 있다면(URL이 틀렸을 때):
-# git remote set-url origin https://github.com/your-username/umbrella-hub.git
+# git remote set-url origin https://github.com/ustress-m/umbrella-hub.git
 
 git branch -M main
 git push -u origin main
@@ -471,11 +471,11 @@ cd /opt/umbrella-hub
 
 docker run --rm \
   --env-file .env.production \
-  ghcr.io/your-username/umbrella-hub:latest \
+  ghcr.io/ustress-m/umbrella-hub:latest \
   sh -c "npx prisma migrate deploy"
 ```
 
-(`your-username/umbrella-hub`는 본인 GHCR 이미지 경로로 교체.)
+(`ustress-m/umbrella-hub`는 본인 GHCR 이미지 경로로 교체.)
 
 ### 10-4. 앱 기동 확인
 
@@ -602,7 +602,7 @@ npm run db:studio
 ```bash
 ssh deploy@<VPS_IP>
 cd /opt/umbrella-hub
-docker pull ghcr.io/your-username/umbrella-hub:<이전-git-SHA>
+docker pull ghcr.io/ustress-m/umbrella-hub:<이전-git-SHA>
 # compose의 image 태그를 맞춘 뒤
 docker compose up -d --no-deps app
 ```
