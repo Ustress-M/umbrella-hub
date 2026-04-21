@@ -1,25 +1,27 @@
 # ─── 1단계: 의존성 설치 ───────────────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --frozen-lockfile
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" npm ci --frozen-lockfile
 
 # ─── 2단계: 빌드 ─────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Prisma 클라이언트 생성
-RUN npx prisma generate
+RUN DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" npx prisma generate
 
 # Next.js 빌드 (standalone 모드)
-RUN npm run build
+RUN DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" npm run build
 
 # ─── 3단계: 실행 이미지 ───────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

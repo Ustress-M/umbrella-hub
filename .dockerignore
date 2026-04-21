@@ -1,0 +1,23 @@
+.git
+.gitignore
+.gitattributes
+.github
+.next
+.env*
+node_modules
+npm-debug.log*
+
+# 개발 도구
+.cursor
+.vscode
+*.md
+SETUP.md
+
+# 테스트/문서
+coverage
+*.test.ts
+*.spec.ts
+
+# 로컬 전용
+src/generated
+tsconfig.tsbuildinfo

@@ -83,28 +83,31 @@ jobs:
 
       - name: VPS 배포
         uses: appleboy/ssh-action@v1
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: IMAGE,ACTOR,TOKEN
           script: |
             set -e
             cd /opt/umbrella-hub
 
-            IMAGE="${{ steps.image.outputs.name }}"
-
             # 최신 이미지 pull
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker pull ${IMAGE}:latest
+            echo "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+            docker pull "${IMAGE}:latest"
 
             # DB 마이그레이션 실행
             docker run --rm \
               --env-file .env.production \
-              ${IMAGE}:latest \
+              "${IMAGE}:latest" \
               sh -c "npx prisma migrate deploy"
 
-            # 앱 재시작 (무중단)
-            docker compose up -d --no-deps app
+            # docker-compose 에 이미지 주입 후 재시작
+            APP_IMAGE="${IMAGE}" docker compose up -d --no-deps app
 
             # 오래된 이미지 정리
             docker image prune -f

@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/umbrella-hub}:latest
+    image: ${APP_IMAGE:-ghcr.io/ustress-m/umbrella-hub}:latest
     container_name: umbrella-hub
     restart: unless-stopped
     ports:
