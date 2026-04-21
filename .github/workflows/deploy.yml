@@ -71,6 +71,29 @@ jobs:
         env:
           DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
 
+      - name: Neon 연결 사전 진단 (호스트·포트·TLS)
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          # DIRECT_URL 에서 호스트·포트만 추출 (자격증명은 로그에 남기지 않음)
+          if [ -z "${DIRECT_URL}" ]; then
+            echo "::error::secrets.DIRECT_URL 이 비어 있음. GitHub Secrets 등록 여부 확인."
+            exit 1
+          fi
+          host_port=$(node -e "const u=new URL(process.env.DIRECT_URL); console.log(u.hostname+' '+(u.port||'5432'))")
+          host=$(echo "${host_port}" | awk '{print $1}')
+          port=$(echo "${host_port}" | awk '{print $2}')
+          echo "host=${host}  port=${port}"
+
+          echo "▶ DNS (A / AAAA)"
+          getent ahosts "${host}" || true
+
+          echo "▶ TCP reach (nc, 10s)"
+          nc -vz -w 10 "${host}" "${port}" || echo "::warning::TCP 연결 실패 — Neon compute suspend 또는 방화벽 가능성"
+
+          echo "▶ TLS handshake (openssl, SNI)"
+          timeout 15 openssl s_client -connect "${host}:${port}" -servername "${host}" -starttls postgres </dev/null 2>&1 | head -n 20 || true
+
       - name: Prisma migrate deploy (Neon 컴퓨트 웨이크업 재시도 포함)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -78,17 +101,19 @@ jobs:
         run: |
           set +e
           for attempt in 1 2 3 4 5; do
-            echo "::group::migrate attempt ${attempt}/5"
+            echo "───────── migrate attempt ${attempt}/5 ─────────"
             npx prisma migrate deploy
             code=$?
-            echo "::endgroup::"
             if [ $code -eq 0 ]; then
               echo "✅ Prisma 마이그레이션 성공 (attempt ${attempt})"
               exit 0
             fi
-            wait=$((attempt * 6))
-            echo "⏳ Neon 컴퓨트 재개 대기 ${wait}초 후 재시도..."
-            sleep $wait
+            echo "⚠ attempt ${attempt} 실패 (exit ${code})"
+            if [ $attempt -lt 5 ]; then
+              wait=$((attempt * 6))
+              echo "⏳ Neon 컴퓨트 재개 대기 ${wait}초 후 재시도..."
+              sleep $wait
+            fi
           done
           echo "❌ Prisma 마이그레이션 5회 모두 실패"
           exit 1
