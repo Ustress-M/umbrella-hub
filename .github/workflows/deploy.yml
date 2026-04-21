@@ -18,9 +18,9 @@ jobs:
     name: 린트 & 타입 체크
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -54,24 +54,24 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 이미지 이름 소문자 변환
         id: image
         run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: GHCR 로그인
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker Buildx 설정
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Docker 이미지 빌드 & Push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -101,12 +101,13 @@ jobs:
             docker pull "${IMAGE}:latest"
 
             # 2) DB 마이그레이션 (앱 재시작 전에 실행 — Prisma v7 권장 방식)
-            #    prisma.config.ts 를 prisma CLI 가 내장 esbuild 로 직접 실행
+            #    .bin/prisma 심볼릭 링크 대신 실제 번들 파일을 직접 실행.
+            #    (Docker COPY 가 심볼릭 링크를 풀어 WASM 상대경로가 깨지는 문제 회피)
             docker run --rm \
               --env-file .env.production \
               --user root \
               "${IMAGE}:latest" \
-              node_modules/.bin/prisma migrate deploy
+              node node_modules/prisma/build/index.js migrate deploy
 
             # 3) 앱 재시작 (무중단)
             APP_IMAGE="${IMAGE}" docker compose up -d --no-deps app

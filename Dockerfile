@@ -37,12 +37,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/src/generated ./src/generated
 
 # prisma migrate deploy 실행에 필요한 파일들
-# (Prisma v7: CLI는 WASM 파일과 함께 node_modules/.bin 에 번들링됨)
+# Prisma v7 CLI는 node_modules/prisma/build/index.js 에 번들링되어 있고,
+# 같은 디렉터리의 *.wasm 파일을 __dirname 으로 로드함.
+# .bin/prisma 심볼릭 링크는 Docker COPY 가 실제 파일로 변환하면서
+# WASM 상대경로가 깨지므로, 직접 build/index.js 를 node 로 실행해야 함.
+# (deploy.yml 의 migrate 커맨드는 node node_modules/prisma/build/index.js)
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma* ./node_modules/.bin/
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/dotenv ./node_modules/dotenv
 
 USER nextjs
