@@ -34,8 +34,14 @@ RUN adduser --system --uid 1001 nextjs
 # standalone 빌드 결과물만 복사
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-# public 폴더가 없을 수도 있으므로 존재 시에만 복사
 COPY --from=builder /app/public ./public/
+
+# prisma migrate deploy 실행에 필요한 파일
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 USER nextjs
 
