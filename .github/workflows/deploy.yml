@@ -1,0 +1,102 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ────────────────────────────────────────────────────────────
+  # 1. 코드 품질 검사 (PR + Push 모두 실행)
+  # ────────────────────────────────────────────────────────────
+  lint:
+    name: 린트 & 타입 체크
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: Prisma 클라이언트 생성
+        run: npx prisma generate
+
+      - name: TypeScript 타입 체크
+        run: npm run type-check
+
+      - name: ESLint
+        run: npm run lint
+
+  # ────────────────────────────────────────────────────────────
+  # 2. Docker 빌드 & 배포 (main 브랜치 Push 시에만)
+  # ────────────────────────────────────────────────────────────
+  deploy:
+    name: 빌드 & 배포
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: GHCR 로그인
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker 이미지 빌드 & Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: VPS 배포
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/umbrella-hub
+
+            # 최신 이미지 pull
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ghcr.io/${{ github.repository }}:latest
+
+            # DB 마이그레이션 실행
+            docker run --rm \
+              --env-file .env.production \
+              ghcr.io/${{ github.repository }}:latest \
+              sh -c "npx prisma migrate deploy"
+
+            # 앱 재시작 (무중단)
+            docker compose up -d --no-deps app
+
+            # 오래된 이미지 정리
+            docker image prune -f
+
+            echo "✅ 배포 완료: $(date)"

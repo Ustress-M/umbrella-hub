@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+model Umbrella {
+  id        String          @id @default(cuid())
+  number    String          @unique
+  status    UmbrellaStatus  @default(AVAILABLE)
+  rentals   Rental[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("umbrellas")
+}
+
+model Rental {
+  id             String       @id @default(cuid())
+  umbrella       Umbrella     @relation(fields: [umbrellaId], references: [id])
+  umbrellaId     String
+  studentId      String
+  studentName    String
+  phone          String
+  status         RentalStatus @default(RENTED)
+  returnPhotoUrl String?
+  note           String?
+  createdAt      DateTime     @default(now())
+  returnedAt     DateTime?
+  deleteAt       DateTime?
+
+  @@index([umbrellaId])
+  @@index([studentId, studentName])
+  @@index([status])
+  @@index([deleteAt])
+  @@map("rentals")
+}
+
+enum UmbrellaStatus {
+  AVAILABLE
+  RENTED
+  MAINTENANCE
+}
+
+enum RentalStatus {
+  RENTED
+  RETURNED
+  LOST
+  OVERDUE
+}

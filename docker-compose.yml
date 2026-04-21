@@ -1,0 +1,15 @@
+services:
+  app:
+    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/umbrella-hub}:latest
+    container_name: umbrella-hub
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
