@@ -28,7 +28,7 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Next.js standalone 빌드 결과물
+# Next.js standalone 빌드 결과물 (server.js 포함, node_modules 는 다음 단계에서 덮어씀)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
@@ -36,16 +36,20 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Prisma 생성 클라이언트 (커스텀 출력 경로: src/generated/prisma)
 COPY --from=builder --chown=nextjs:nodejs /app/src/generated ./src/generated
 
-# prisma migrate deploy 실행에 필요한 파일들
-# Prisma v7 CLI는 node_modules/prisma/build/index.js 에 번들링되어 있고,
-# 같은 디렉터리의 *.wasm 파일을 __dirname 으로 로드함.
-# .bin/prisma 심볼릭 링크는 Docker COPY 가 실제 파일로 변환하면서
-# WASM 상대경로가 깨지므로, 직접 build/index.js 를 node 로 실행해야 함.
+# Prisma CLI (migrate deploy) 실행에 필요한 파일들
+#
+# Prisma v7 CLI 는 node_modules/prisma/build/index.js 에 번들링되어 있지만,
+# @prisma/engines 등 일부 의존성을 런타임에 동적 require() 로 로드함.
+# 또한 .bin/prisma 심볼릭 링크는 Docker COPY 가 실제 파일로 변환하면서
+# WASM 상대경로가 깨짐 → 직접 build/index.js 를 node 로 실행해야 함.
 # (deploy.yml 의 migrate 커맨드는 node node_modules/prisma/build/index.js)
+#
+# 동적 require 가 어떤 @prisma/* 패키지를 요구하는지 완벽히 예측하기 어려우므로
+# builder 의 node_modules 전체를 가져와 whack-a-mole 을 끝냄.
+# standalone 의 pruned node_modules 는 이것의 부분집합이라 덮어써도 안전함.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/dotenv ./node_modules/dotenv
 
 USER nextjs
 
