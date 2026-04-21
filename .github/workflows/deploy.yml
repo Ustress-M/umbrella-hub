@@ -96,20 +96,22 @@ jobs:
             set -e
             cd /opt/umbrella-hub
 
-            # 최신 이미지 pull
+            # 1) 최신 이미지 pull
             echo "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
             docker pull "${IMAGE}:latest"
 
-            # DB 마이그레이션 실행
+            # 2) DB 마이그레이션 (앱 재시작 전에 실행 — Prisma v7 권장 방식)
+            #    prisma.config.ts 를 prisma CLI 가 내장 esbuild 로 직접 실행
             docker run --rm \
               --env-file .env.production \
+              --user root \
               "${IMAGE}:latest" \
-              sh -c "./node_modules/.bin/prisma migrate deploy"
+              node_modules/.bin/prisma migrate deploy
 
-            # docker-compose 에 이미지 주입 후 재시작
+            # 3) 앱 재시작 (무중단)
             APP_IMAGE="${IMAGE}" docker compose up -d --no-deps app
 
-            # 오래된 이미지 정리
+            # 4) 오래된 이미지 정리
             docker image prune -f
 
             echo "✅ 배포 완료: $(date)"
