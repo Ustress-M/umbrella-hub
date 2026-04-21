@@ -1,6 +1,15 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const db = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set");
+}
+
+const adapter = new PrismaPg({ connectionString });
+const db = new PrismaClient({ adapter });
 
 const umbrellaNumbers = ["001", "002", "003", "004", "005"];
 

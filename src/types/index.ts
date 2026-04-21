@@ -1,4 +1,4 @@
-import type { Umbrella, Rental, UmbrellaStatus, RentalStatus } from "@prisma/client";
+import type { Umbrella, Rental, UmbrellaStatus, RentalStatus } from "@/generated/prisma/client";
 
 export type { UmbrellaStatus, RentalStatus };
 
@@ -49,9 +49,3 @@ declare module "next-auth" {
   }
 }
 
-// NextAuth JWT 타입 확장 (token.role 타입 안전성)
-declare module "next-auth/jwt" {
-  interface JWT {
-    role?: string;
-  }
-}

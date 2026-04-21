@@ -4,12 +4,13 @@ import { Umbrella } from "lucide-react";
 import { RentalForm } from "@/components/student/RentalForm";
 
 interface Props {
-  params: { umbrellaId: string };
+  params: Promise<{ umbrellaId: string }>;
 }
 
 const RentPage = async ({ params }: Props) => {
+  const { umbrellaId } = await params;
   const umbrella = await db.umbrella.findUnique({
-    where: { id: params.umbrellaId },
+    where: { id: umbrellaId },
   });
 
   if (!umbrella) notFound();

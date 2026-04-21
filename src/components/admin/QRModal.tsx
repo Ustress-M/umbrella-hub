@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Download } from "lucide-react";
 import { generateQRDataUrl, getRentUrl } from "@/lib/utils";
-import type { Umbrella } from "@prisma/client";
+import type { Umbrella } from "@/generated/prisma/client";
 
 interface Props {
   umbrella: Umbrella;

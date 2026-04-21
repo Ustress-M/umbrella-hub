@@ -22,7 +22,8 @@ const LoginForm = () => {
       redirect: false,
     });
 
-    if (result?.ok) {
+    // Auth.js v5에서는 인증 실패여도 ok가 true일 수 있어 error 필드를 우선 확인한다.
+    if (result && !result.error) {
       router.push("/admin/dashboard");
     } else {
       setError("아이디 또는 비밀번호가 올바르지 않습니다");

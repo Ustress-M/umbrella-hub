@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { UmbrellaTable } from "@/components/admin/UmbrellaTable";
 import { AddUmbrellaModal } from "@/components/admin/AddUmbrellaModal";
 import { useToast } from "@/components/ui/use-toast";
-import type { Umbrella } from "@prisma/client";
+import type { Umbrella } from "@/generated/prisma/client";
 
 const UmbrellasPage = () => {
   const [umbrellas, setUmbrellas] = useState<Umbrella[]>([]);

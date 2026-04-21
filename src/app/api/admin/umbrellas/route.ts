@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { addUmbrellaSchema } from "@/lib/validations";
 import { generateQRDataUrl, getRentUrl, getBaseUrl } from "@/lib/utils";
 import type { ApiResponse } from "@/types";
-import type { Umbrella } from "@prisma/client";
+import type { Umbrella } from "@/generated/prisma/client";
 
 export const GET = async (): Promise<NextResponse<ApiResponse<Umbrella[]>>> => {
   const session = await auth();
@@ -31,7 +31,7 @@ export const POST = async (
   const parsed = addUmbrellaSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { success: false, error: parsed.error.errors[0].message },
+      { success: false, error: parsed.error.issues[0].message },
       { status: 400 }
     );
   }

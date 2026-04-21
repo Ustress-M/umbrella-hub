@@ -4,7 +4,7 @@ import { Umbrella } from "lucide-react";
 import { ReturnForm } from "@/components/student/ReturnForm";
 
 interface Props {
-  params: { umbrellaId: string };
+  params: Promise<{ umbrellaId: string }>;
 }
 
 type UnavailableMessageProps = {
@@ -24,8 +24,9 @@ const UnavailableMessage = ({ emoji, title, description }: UnavailableMessagePro
 );
 
 const ReturnPage = async ({ params }: Props) => {
+  const { umbrellaId } = await params;
   const umbrella = await db.umbrella.findUnique({
-    where: { id: params.umbrellaId },
+    where: { id: umbrellaId },
   });
 
   if (!umbrella) notFound();

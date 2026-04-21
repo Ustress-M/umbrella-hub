@@ -31,6 +31,8 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/
+src/generated/
+tsconfig.tsbuildinfo
 
 # 테스트
 coverage/

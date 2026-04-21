@@ -61,7 +61,7 @@ const RentalRow = ({
       <td className="px-4 py-3 min-w-[140px]">
         <select
           value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
+          onChange={(e) => setSelectedStatus(e.target.value as typeof selectedStatus)}
           className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 mb-1"
         >
           <option value="RENTED">대여중</option>

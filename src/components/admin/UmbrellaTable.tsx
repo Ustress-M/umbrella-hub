@@ -4,7 +4,7 @@ import { useState } from "react";
 import { QrCode, Trash2, Settings } from "lucide-react";
 import { cn, umbrellaStatusLabel, getRentUrl } from "@/lib/utils";
 import { QRModal } from "@/components/admin/QRModal";
-import type { Umbrella } from "@prisma/client";
+import type { Umbrella } from "@/generated/prisma/client";
 
 interface Props {
   umbrellas: Umbrella[];

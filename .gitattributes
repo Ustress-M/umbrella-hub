@@ -1,0 +1,22 @@
+# 모든 텍스트 파일을 저장소에서는 LF 로 저장하고,
+# 체크아웃 시 OS 기본 설정(git core.autocrlf)에 맡긴다.
+* text=auto eol=lf
+
+# 쉘 스크립트는 반드시 LF (Mac/Linux 에서만 실행)
+*.sh text eol=lf
+
+# Windows 전용 스크립트는 CRLF 유지
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 바이너리
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

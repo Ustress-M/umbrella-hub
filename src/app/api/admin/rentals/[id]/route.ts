@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { updateRentalSchema } from "@/lib/validations";
 import type { ApiResponse, RentalWithUmbrella } from "@/types";
-import type { UmbrellaStatus } from "@prisma/client";
+import type { UmbrellaStatus } from "@/generated/prisma/client";
 
 /**
  * 대여 상태에 따른 우산 상태 매핑.
@@ -26,7 +26,7 @@ const toUmbrellaStatus = (rentalStatus: string): UmbrellaStatus => {
 
 export const PATCH = async (
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ApiResponse<RentalWithUmbrella>>> => {
   const session = await auth();
   if (!session) {
@@ -37,15 +37,17 @@ export const PATCH = async (
   const parsed = updateRentalSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { success: false, error: parsed.error.errors[0].message },
+      { success: false, error: parsed.error.issues[0].message },
       { status: 400 }
     );
   }
 
   const { status, note } = parsed.data;
 
+  const { id } = await params;
+
   const rental = await db.rental.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { umbrella: true },
   });
 
@@ -61,7 +63,7 @@ export const PATCH = async (
   const updated = await db.$transaction(async (tx) => {
     const [updatedRental] = await Promise.all([
       tx.rental.update({
-        where: { id: params.id },
+        where: { id },
         data: { status, note },
         include: { umbrella: true },
       }),

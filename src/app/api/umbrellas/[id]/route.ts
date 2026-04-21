@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import type { ApiResponse } from "@/types";
-import type { Umbrella } from "@prisma/client";
+import type { Umbrella } from "@/generated/prisma/client";
 
 export const GET = async (
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ApiResponse<Umbrella>>> => {
+  const { id } = await params;
+
   const umbrella = await db.umbrella.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!umbrella) {

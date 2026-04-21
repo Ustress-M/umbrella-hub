@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { rentalSchema } from "@/lib/validations";
 import { ACTIVE_RENTAL_STATUSES } from "@/lib/queries";
 import type { ApiResponse } from "@/types";
-import type { Rental } from "@prisma/client";
+import type { Rental } from "@/generated/prisma/client";
 
 export const POST = async (
   req: NextRequest
@@ -19,7 +19,7 @@ export const POST = async (
   const parsed = rentalSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { success: false, error: parsed.error.errors[0].message },
+      { success: false, error: parsed.error.issues[0].message },
       { status: 400 }
     );
   }

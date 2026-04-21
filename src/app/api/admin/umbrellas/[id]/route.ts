@@ -3,11 +3,11 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { updateUmbrellaSchema } from "@/lib/validations";
 import type { ApiResponse } from "@/types";
-import type { Umbrella } from "@prisma/client";
+import type { Umbrella } from "@/generated/prisma/client";
 
 export const PATCH = async (
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ApiResponse<Umbrella>>> => {
   const session = await auth();
   if (!session) {
@@ -18,13 +18,15 @@ export const PATCH = async (
   const parsed = updateUmbrellaSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { success: false, error: parsed.error.errors[0].message },
+      { success: false, error: parsed.error.issues[0].message },
       { status: 400 }
     );
   }
 
+  const { id } = await params;
+
   const umbrella = await db.umbrella.update({
-    where: { id: params.id },
+    where: { id },
     data: { status: parsed.data.status },
   });
 
@@ -33,15 +35,17 @@ export const PATCH = async (
 
 export const DELETE = async (
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ApiResponse<{ message: string }>>> => {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ success: false, error: "인증이 필요합니다" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const activeRental = await db.rental.findFirst({
-    where: { umbrellaId: params.id, status: "RENTED" },
+    where: { umbrellaId: id, status: "RENTED" },
   });
 
   if (activeRental) {
@@ -51,7 +55,7 @@ export const DELETE = async (
     );
   }
 
-  await db.umbrella.delete({ where: { id: params.id } });
+  await db.umbrella.delete({ where: { id } });
 
   return NextResponse.json({
     success: true,
