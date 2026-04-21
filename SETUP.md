@@ -416,11 +416,16 @@ sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 > GitHub UI에서는 **보안**, **Secrets**, **Variables** 하위 메뉴 이름이 바뀔 수 있습니다. 검색창에 `Actions secrets` 등으로 검색합니다.
 
 
-| Secret 이름     | 값               | 설명           |
-| ------------- | --------------- | ------------ |
-| `VPS_HOST`    | VPS 공인 IP       | 예: `1.2.3.4` |
-| `VPS_USER`    | `deploy`        | SSH 사용자명     |
-| `VPS_SSH_KEY` | SSH **개인 키** 전체 | 아래 참고        |
+| Secret 이름      | 값                                | 설명                                                        |
+| -------------- | -------------------------------- | --------------------------------------------------------- |
+| `VPS_HOST`     | VPS 공인 IP                        | 예: `1.2.3.4`                                              |
+| `VPS_USER`     | `deploy`                         | SSH 사용자명                                                  |
+| `VPS_SSH_KEY`  | SSH **개인 키** 전체                  | 아래 참고                                                     |
+| `DATABASE_URL` | Neon **pooled** 연결 문자열 (`-pooler` 포함) | CI 러너의 Prisma migrate 가 `prisma.config.ts` 로딩 시 폴백용으로 읽음  |
+| `DIRECT_URL`   | Neon **direct** 연결 문자열 (`-pooler` 없음) | `prisma migrate deploy` 가 실제로 사용하는 값. DDL·advisory lock 을 위해 pooler 우회 필수 |
+
+
+> **왜 DB URL 을 GitHub Secrets 에 넣나?** 2026 현재 Neon+Prisma 권장 CI 마이그레이션 경로는 **VPS 가 아닌 GitHub Actions 러너에서 `prisma migrate deploy` 를 실행**하는 것입니다. 러너는 깨끗한 듀얼스택 네트워크·AWS 백본 근접성 덕분에 Neon 컴퓨트 cold-start·IPv6 AAAA 문제 없이 연결되며, 실패 시 워크플로 로그에 재시도가 표준적으로 남습니다. 기존 "VPS 안에서 docker run 으로 migrate" 방식은 Docker bridge 가 IPv6 폴백을 못 해 `P1001: Can't reach database server` 가 재현되는 경우가 많습니다. 값은 루트 `.env` 의 `DATABASE_URL` / `DIRECT_URL` 과 동일하게 복사해 넣으면 됩니다 (따옴표는 빼고 순수 URL만).
 
 
 ```powershell
@@ -449,10 +454,11 @@ git push origin main
 단계 요약:
 
 1. **린트 & 타입 체크**
-2. **Docker 이미지 빌드 & Push** → GHCR(`ghcr.io/<owner>/<repo>`)
-3. **VPS SSH 배포** → 이미지 pull → `**prisma migrate deploy`** → `docker compose up -d`
+2. **DB 마이그레이션 (Neon)** → 러너에서 `prisma migrate deploy` 실행. Neon 컴퓨트 재개 지연에 대비해 최대 5회 backoff 재시도.
+3. **Docker 이미지 빌드 & Push** → GHCR(`ghcr.io/<owner>/<repo>`)
+4. **VPS SSH 배포** → 이미지 pull → `docker compose up -d` (마이그레이션은 이 단계에 포함되지 않음)
 
-`.github/workflows/deploy.yml` 기준으로 **마이그레이션은 배포 스크립트 안에서 자동 실행**됩니다.
+`.github/workflows/deploy.yml` 기준으로 **DB 마이그레이션은 러너 job 에서 완료된 뒤에야 빌드·배포가 진행**됩니다. 마이그레이션이 실패하면 배포 job 은 시작되지 않아, 스키마 불일치로 인한 장애를 사전에 차단합니다.
 
 ### 10-3. DB 마이그레이션을 수동으로 할 때
 

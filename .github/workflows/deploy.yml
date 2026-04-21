@@ -42,12 +42,64 @@ jobs:
         run: npm run lint
 
   # ────────────────────────────────────────────────────────────
-  # 2. Docker 빌드 & 배포 (main 브랜치 Push 시에만)
+  # 2. DB 마이그레이션 (GitHub Actions 러너에서 실행 — main Push 시에만)
+  #
+  # 왜 VPS 가 아닌 러너에서 실행하나:
+  #  - Neon direct endpoint(5432) 는 컴퓨트 scale-to-zero 에서 깨어나는 데
+  #    수초가 걸리고, 기본 Docker bridge 네트워크는 IPv6 AAAA 응답을 만나면
+  #    Prisma 엔진이 IPv4 폴백 전에 타임아웃 → P1001 을 반복 유발함.
+  #  - GitHub 러너는 깨끗한 듀얼스택·AWS 백본 근접성·재시도 로그가 표준이라
+  #    Neon 공식 권장 CI 마이그레이션 경로에 부합함.
+  #  - 러너는 레포 main SHA 를 체크아웃하므로, 같은 커밋에서 빌드되는 이미지와
+  #    스키마가 항상 일치함.
+  # ────────────────────────────────────────────────────────────
+  migrate:
+    name: DB 마이그레이션 (Neon)
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+        env:
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+
+      - name: Prisma migrate deploy (Neon 컴퓨트 웨이크업 재시도 포함)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          set +e
+          for attempt in 1 2 3 4 5; do
+            echo "::group::migrate attempt ${attempt}/5"
+            npx prisma migrate deploy
+            code=$?
+            echo "::endgroup::"
+            if [ $code -eq 0 ]; then
+              echo "✅ Prisma 마이그레이션 성공 (attempt ${attempt})"
+              exit 0
+            fi
+            wait=$((attempt * 6))
+            echo "⏳ Neon 컴퓨트 재개 대기 ${wait}초 후 재시도..."
+            sleep $wait
+          done
+          echo "❌ Prisma 마이그레이션 5회 모두 실패"
+          exit 1
+
+  # ────────────────────────────────────────────────────────────
+  # 3. Docker 빌드 & 배포 (main 브랜치 Push 시에만)
   # ────────────────────────────────────────────────────────────
   deploy:
     name: 빌드 & 배포
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, migrate]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read
@@ -100,23 +152,10 @@ jobs:
             echo "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
             docker pull "${IMAGE}:latest"
 
-            # 2) DB 마이그레이션 (앱 재시작 전에 실행 — Prisma v7 권장 방식)
-            #
-            #    - .bin/prisma 심볼릭 링크 대신 번들 파일 직접 실행
-            #      (Docker COPY 가 심볼릭 링크를 풀어 WASM 상대경로가 깨짐)
-            #    - --env-file 대신 .env.production 을 /app/.env 로 마운트
-            #      (Docker --env-file 은 값의 따옴표를 리터럴로 남겨 URL 스킴 파싱 실패.
-            #       prisma.config.ts 의 dotenv 로 로드해 따옴표를 정상 제거)
-            docker run --rm \
-              -v "$(pwd)/.env.production:/app/.env:ro" \
-              --user root \
-              "${IMAGE}:latest" \
-              node node_modules/prisma/build/index.js migrate deploy
-
-            # 3) 앱 재시작 (무중단)
+            # 2) 앱 재시작 (DB 마이그레이션은 이전 job 에서 이미 적용됨)
             APP_IMAGE="${IMAGE}" docker compose up -d --no-deps app
 
-            # 4) 오래된 이미지 정리
+            # 3) 오래된 이미지 정리
             docker image prune -f
 
             echo "✅ 배포 완료: $(date)"
