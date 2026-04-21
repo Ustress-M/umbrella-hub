@@ -101,10 +101,14 @@ jobs:
             docker pull "${IMAGE}:latest"
 
             # 2) DB 마이그레이션 (앱 재시작 전에 실행 — Prisma v7 권장 방식)
-            #    .bin/prisma 심볼릭 링크 대신 실제 번들 파일을 직접 실행.
-            #    (Docker COPY 가 심볼릭 링크를 풀어 WASM 상대경로가 깨지는 문제 회피)
+            #
+            #    - .bin/prisma 심볼릭 링크 대신 번들 파일 직접 실행
+            #      (Docker COPY 가 심볼릭 링크를 풀어 WASM 상대경로가 깨짐)
+            #    - --env-file 대신 .env.production 을 /app/.env 로 마운트
+            #      (Docker --env-file 은 값의 따옴표를 리터럴로 남겨 URL 스킴 파싱 실패.
+            #       prisma.config.ts 의 dotenv 로 로드해 따옴표를 정상 제거)
             docker run --rm \
-              --env-file .env.production \
+              -v "$(pwd)/.env.production:/app/.env:ro" \
               --user root \
               "${IMAGE}:latest" \
               node node_modules/prisma/build/index.js migrate deploy
