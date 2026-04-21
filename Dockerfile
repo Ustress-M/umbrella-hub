@@ -34,7 +34,8 @@ RUN adduser --system --uid 1001 nextjs
 # standalone 빌드 결과물만 복사
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# public 폴더가 없을 수도 있으므로 존재 시에만 복사
+COPY --from=builder /app/public ./public/
 
 USER nextjs
 
