@@ -378,12 +378,15 @@ scp "d:\Umbrella Hub\docker-compose.yml" deploy@<VPS_IP>:/opt/umbrella-hub/
 
 ### 8-1. DNS A 레코드 추가
 
-도메인 업체(가비아, 카페24, Cloudflare DNS 등)에서 예시:
+도메인 업체(가비아, 카페24, Cloudflare DNS 등)에서 **서브도메인**을 VPS 로 연결합니다.
+예시 (실제 서비스 도메인 `umbrella.ms-project.kr`):
 
 ```
-타입: A    이름: @    값: <VPS_IP>    TTL: 300
-타입: A    이름: www  값: <VPS_IP>    TTL: 300
+타입: A    이름: umbrella    값: <VPS_IP>    TTL: 300
 ```
+
+> 루트 도메인(`ms-project.kr`)을 이 서비스로 쓰고 싶다면 `@` A 레코드도 추가.
+> 전파 확인: `nslookup umbrella.ms-project.kr 8.8.8.8` 결과가 VPS IP 와 일치해야 함.
 
 ### 8-2. Nginx 설정 파일 작성
 
@@ -391,7 +394,8 @@ scp "d:\Umbrella Hub\docker-compose.yml" deploy@<VPS_IP>:/opt/umbrella-hub/
 sudo nano /etc/nginx/sites-available/umbrella.conf
 ```
 
-저장소의 `nginx/umbrella.conf` 내용을 붙여넣고 `your-domain.com`을 실제 도메인으로 바꿉니다.
+저장소의 `nginx/umbrella.conf` 내용을 그대로 붙여넣습니다.
+(이 파일의 `server_name` 은 이미 `umbrella.ms-project.kr` 로 세팅되어 있음. 다른 도메인을 쓴다면 해당 값만 변경.)
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/umbrella.conf /etc/nginx/sites-enabled/
@@ -402,7 +406,7 @@ sudo systemctl restart nginx
 ### 8-3. SSL 인증서 (Certbot)
 
 ```bash
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com
+sudo certbot --nginx -d umbrella.ms-project.kr
 ```
 
 자동 갱신: `sudo systemctl status certbot.timer`
