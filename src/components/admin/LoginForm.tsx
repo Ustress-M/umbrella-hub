@@ -24,6 +24,11 @@ const LoginForm = () => {
 
     // Auth.js v5에서는 인증 실패여도 ok가 true일 수 있어 error 필드를 우선 확인한다.
     if (result && !result.error) {
+      // 프리페치된 /admin/dashboard RSC 는 "로그인 전" 상태로 캐시돼 있어
+      // 단순 push 만 하면 새로고침 전까지 로그인이 반영되지 않은 화면이 보인다.
+      // router.refresh() 로 클라이언트 라우터 캐시를 버린 뒤 이동해 쿠키가
+      // 실린 새 RSC 를 받아오도록 강제한다.
+      router.refresh();
       router.push("/admin/dashboard");
     } else {
       setError("아이디 또는 비밀번호가 올바르지 않습니다");
