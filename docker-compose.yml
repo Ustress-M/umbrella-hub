@@ -10,6 +10,12 @@ services:
       - "127.0.0.1:3000:3000"
     env_file:
       - .env.production
+    environment:
+      # bcrypt 해시에는 `$` 가 섞여있어 env_file 파서나 쉘에서 손상되기 쉬움.
+      # 대신 Compose 자동 로드 파일 (docker-compose.yml 과 같은 폴더의 .env)
+      # 에 ADMIN_PASSWORD_HASH 를 둬서 그 값이 그대로 컨테이너에 주입되게 한다.
+      # Compose 는 .env 값을 해석 없이 리터럴로 넘긴다.
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH must be set in /opt/umbrella-hub/.env}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 30s
