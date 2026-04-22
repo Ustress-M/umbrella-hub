@@ -4,7 +4,10 @@ services:
     container_name: umbrella-hub
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      # nginx 역방향 프록시만 접근하도록 localhost 에만 바인딩.
+      # 여러 서브도메인 프로젝트를 같은 VPS 에서 운영할 때 포트 직통 접근을
+      # 차단해 공격 표면을 줄인다. 외부 노출은 전적으로 nginx 가 담당.
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env.production
     healthcheck:

@@ -379,14 +379,14 @@ scp "d:\Umbrella Hub\docker-compose.yml" deploy@<VPS_IP>:/opt/umbrella-hub/
 ### 8-1. DNS A 레코드 추가
 
 도메인 업체(가비아, 카페24, Cloudflare DNS 등)에서 **서브도메인**을 VPS 로 연결합니다.
-예시 (실제 서비스 도메인 `umbrella.ms-project.kr`):
+예시 (실제 서비스 도메인 `umbrella.project-ms.kr`):
 
 ```
 타입: A    이름: umbrella    값: <VPS_IP>    TTL: 300
 ```
 
-> 루트 도메인(`ms-project.kr`)을 이 서비스로 쓰고 싶다면 `@` A 레코드도 추가.
-> 전파 확인: `nslookup umbrella.ms-project.kr 8.8.8.8` 결과가 VPS IP 와 일치해야 함.
+> 루트 도메인(`project-ms.kr`)을 이 서비스로 쓰고 싶다면 `@` A 레코드도 추가.
+> 전파 확인: `nslookup umbrella.project-ms.kr 8.8.8.8` 결과가 VPS IP 와 일치해야 함.
 
 ### 8-2. Nginx 설정 파일 작성
 
@@ -395,7 +395,7 @@ sudo nano /etc/nginx/sites-available/umbrella.conf
 ```
 
 저장소의 `nginx/umbrella.conf` 내용을 그대로 붙여넣습니다.
-(이 파일의 `server_name` 은 이미 `umbrella.ms-project.kr` 로 세팅되어 있음. 다른 도메인을 쓴다면 해당 값만 변경.)
+(이 파일의 `server_name` 은 이미 `umbrella.project-ms.kr` 로 세팅되어 있음. 다른 도메인을 쓴다면 해당 값만 변경.)
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/umbrella.conf /etc/nginx/sites-enabled/
@@ -406,7 +406,7 @@ sudo systemctl restart nginx
 ### 8-3. SSL 인증서 (Certbot)
 
 ```bash
-sudo certbot --nginx -d umbrella.ms-project.kr
+sudo certbot --nginx -d umbrella.project-ms.kr
 ```
 
 자동 갱신: `sudo systemctl status certbot.timer`
@@ -634,6 +634,130 @@ docker compose up -d --no-deps app
 | `SESSION_LIFETIME_SECONDS` | —   | 관리자 세션(초), 기본 7200    | `7200`                      |
 | `MAX_UPLOAD_SIZE_MB`       | —   | 업로드 상한                | `5`                         |
 
+
+---
+
+## 부록 A — 같은 VPS 에 다른 서브도메인 프로젝트 추가하기
+
+이 VPS 는 이미 `umbrella.project-ms.kr` (포트 3000) 을 서빙 중입니다.
+`gpt.project-ms.kr`, `chat.project-ms.kr` 처럼 **다른 프로젝트도 서브도메인으로 붙이는 표준 절차**는 다음과 같습니다.
+
+### 원칙
+
+| 축 | 규칙 |
+|---|---|
+| 디렉터리 | `/opt/<프로젝트명>/` (예: `/opt/gpt-app/`) |
+| 호스트 포트 | 프로젝트마다 다른 포트 (3000, 3001, 3002 …) |
+| nginx conf | `/etc/nginx/sites-available/<프로젝트명>.conf` 1 파일/프로젝트 |
+| TLS 인증서 | `certbot --nginx -d <서브도메인>` 으로 도메인별 발급 |
+| DNS | 서브도메인마다 A 레코드 추가 |
+
+### 현재 포트 할당 (업데이트 유지할 것)
+
+| 포트 | 프로젝트 | 디렉터리 |
+|---|---|---|
+| 3000 | umbrella-hub | `/opt/umbrella-hub` |
+| 3001 | (미할당) | — |
+| 3002 | (미할당) | — |
+
+### 새 프로젝트 추가 절차 (예: `gpt.project-ms.kr`, 포트 3001)
+
+#### 1) DNS — 도메인 업체에서 A 레코드 추가
+
+| 타입 | 이름 | 값 | TTL |
+|---|---|---|---|
+| A | `gpt` | `<VPS_IP>` | 300 |
+
+전파 확인:
+```bash
+nslookup gpt.project-ms.kr 8.8.8.8
+```
+
+#### 2) 앱 디렉터리 & docker-compose 준비
+
+```bash
+sudo mkdir -p /opt/gpt-app
+sudo chown deploy:deploy /opt/gpt-app
+cd /opt/gpt-app
+```
+
+`docker-compose.yml` 작성 — 핵심은 **호스트 포트 3001, 앱 포트 3000** 매핑:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/<GH_ORG>/gpt-app:latest
+    container_name: gpt-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"   # localhost 에만 바인딩(외부 노출은 nginx 경유)
+    env_file:
+      - .env.production
+```
+
+> `127.0.0.1:` 프리픽스로 바인딩하면 호스트 방화벽과 무관하게 외부에서 직접 포트로 접근 불가. nginx 역방향 프록시만 허용.
+
+#### 3) nginx conf 생성 (템플릿 활용)
+
+레포 `nginx/_subdomain.template.conf` 를 치환해서 바로 생성:
+
+```bash
+# 레포 clone 또는 파일 복사 후
+sed -e 's|<PROJECT>|gpt|g' \
+    -e 's|<SUBDOMAIN>|gpt.project-ms.kr|g' \
+    -e 's|<APP_PORT>|3001|g' \
+    nginx/_subdomain.template.conf \
+  | sudo tee /etc/nginx/sites-available/gpt.conf
+
+sudo ln -sf /etc/nginx/sites-available/gpt.conf /etc/nginx/sites-enabled/gpt.conf
+```
+
+인증서 발급 전이므로 443 블록의 `ssl_certificate` 경로가 아직 없어서 `nginx -t` 는 이 단계에서 실패합니다. **reload 하지 말고 바로 certbot 실행**:
+
+```bash
+sudo certbot --nginx -d gpt.project-ms.kr
+```
+
+certbot 이 자동으로 인증서 발급 + nginx conf 확인 + reload.
+
+#### 4) 앱 기동
+
+```bash
+cd /opt/gpt-app
+docker compose up -d
+curl -I https://gpt.project-ms.kr
+```
+
+200/307 응답이면 완료.
+
+### 체크리스트 — 새 프로젝트 추가 시
+
+- [ ] 포트 표 갱신 (위 표에 새 항목 추가)
+- [ ] `docker-compose.yml` 의 ports 가 `127.0.0.1:<host_port>:3000` 패턴인지
+- [ ] `.env.production` 에 `NEXTAUTH_URL=https://<서브도메인>` 등 도메인 의존 값 세팅
+- [ ] nginx conf 가 `/etc/nginx/sites-enabled/` 에 심볼릭 링크되어 있는지
+- [ ] `sudo certbot certificates` 로 해당 서브도메인 인증서 확인
+- [ ] `sudo ufw status` 에 80/443 열려있는지 (이미 열려있음)
+- [ ] 자동 갱신 확인: `sudo systemctl status certbot.timer`
+
+### 제거 절차
+
+```bash
+# 1) 앱 종료
+cd /opt/gpt-app && docker compose down
+
+# 2) nginx conf 비활성화
+sudo rm /etc/nginx/sites-enabled/gpt.conf
+sudo nginx -t && sudo systemctl reload nginx
+
+# 3) 인증서 삭제 (선택)
+sudo certbot delete --cert-name gpt.project-ms.kr
+
+# 4) 디렉터리 정리
+sudo rm -rf /opt/gpt-app
+
+# 5) DNS A 레코드 삭제 (도메인 업체 콘솔)
+```
 
 ---
 

@@ -24,6 +24,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# Next.js 16 standalone 은 HOSTNAME env 를 바인딩 인터페이스로 사용함.
+# Docker 는 기본적으로 HOSTNAME 을 컨테이너 ID 로 덮어써서, 내부 127.0.0.1
+# 접근이 막힘(healthcheck 의 wget 이 Connection refused 를 받는 원인).
+# 모든 인터페이스에 바인딩하도록 명시.
+ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
