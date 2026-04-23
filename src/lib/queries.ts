@@ -4,6 +4,7 @@
  */
 
 import { db } from "@/lib/db";
+import { withNeonRetry } from "@/lib/db-retry";
 import { formatDateOnly } from "@/lib/utils";
 import type { StatsData, WeeklyDataPoint, RentalWithUmbrella } from "@/types";
 
@@ -45,56 +46,58 @@ const buildWeeklyData = (
   return Array.from(map.values());
 };
 
-export const getStats = async (): Promise<StatsData> => {
-  const todayStart = getDateRange(0);
-  const weekStart = getDateRange(6);
-  const threeDaysAgo = getDateRange(3);
+export const getStats = async (): Promise<StatsData> =>
+  withNeonRetry("getStats", async () => {
+    const todayStart = getDateRange(0);
+    const weekStart = getDateRange(6);
+    const threeDaysAgo = getDateRange(3);
 
-  const [
-    totalUmbrellas,
-    rentedCount,
-    availableCount,
-    todayRented,
-    todayReturned,
-    weeklyRentals,
-    weeklyReturns,
-    overdueRentals,
-  ] = await Promise.all([
-    db.umbrella.count(),
-    db.umbrella.count({ where: { status: "RENTED" } }),
-    db.umbrella.count({ where: { status: "AVAILABLE" } }),
-    db.rental.count({ where: { createdAt: { gte: todayStart } } }),
-    db.rental.count({
-      where: { status: "RETURNED", returnedAt: { gte: todayStart } },
-    }),
-    db.rental.findMany({
-      where: { createdAt: { gte: weekStart } },
-      select: { createdAt: true },
-    }),
-    db.rental.findMany({
-      where: { status: "RETURNED", returnedAt: { gte: weekStart } },
-      select: { returnedAt: true },
-    }),
-    db.rental.findMany({
-      where: {
-        status: { in: [...ACTIVE_RENTAL_STATUSES] },
-        createdAt: { lte: threeDaysAgo },
-      },
-      include: { umbrella: true },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+    // 한 번에 8개 동시 쿼리는 풀·Neon 웨이크업 시 실패율을 올릴 수 있어 2회로 나눈다.
+    const [
+      totalUmbrellas,
+      rentedCount,
+      availableCount,
+      todayRented,
+      todayReturned,
+    ] = await Promise.all([
+      db.umbrella.count(),
+      db.umbrella.count({ where: { status: "RENTED" } }),
+      db.umbrella.count({ where: { status: "AVAILABLE" } }),
+      db.rental.count({ where: { createdAt: { gte: todayStart } } }),
+      db.rental.count({
+        where: { status: "RETURNED", returnedAt: { gte: todayStart } },
+      }),
+    ]);
 
-  return {
-    totalUmbrellas,
-    rentedCount,
-    availableCount,
-    todayRented,
-    todayReturned,
-    weeklyData: buildWeeklyData(weeklyRentals, weeklyReturns),
-    overdueRentals,
-  };
-};
+    const [weeklyRentals, weeklyReturns, overdueRentals] = await Promise.all([
+      db.rental.findMany({
+        where: { createdAt: { gte: weekStart } },
+        select: { createdAt: true },
+      }),
+      db.rental.findMany({
+        where: { status: "RETURNED", returnedAt: { gte: weekStart } },
+        select: { returnedAt: true },
+      }),
+      db.rental.findMany({
+        where: {
+          status: { in: [...ACTIVE_RENTAL_STATUSES] },
+          createdAt: { lte: threeDaysAgo },
+        },
+        include: { umbrella: true },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+
+    return {
+      totalUmbrellas,
+      rentedCount,
+      availableCount,
+      todayRented,
+      todayReturned,
+      weeklyData: buildWeeklyData(weeklyRentals, weeklyReturns),
+      overdueRentals,
+    };
+  });
 
 export const getActiveRentalByStudent = async (
   studentId: string,

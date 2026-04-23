@@ -13,13 +13,22 @@ const RentalsPage = () => {
 
   const fetchRentals = useCallback(async () => {
     setIsLoading(true);
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
-    const res = await fetch(`/api/admin/rentals?${params}`);
-    const json = await res.json();
-    if (json.success) setRentals(json.data);
-    setIsLoading(false);
-  }, [statusFilter]);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await fetch(`/api/admin/rentals?${params}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => ({ success: false, error: "응답을 읽을 수 없습니다" }));
+      if (json.success) setRentals(json.data);
+      else toast({ title: json.error ?? "목록을 불러오지 못했습니다", variant: "destructive" });
+    } catch {
+      toast({ title: "네트워크 오류로 목록을 불러오지 못했습니다", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [statusFilter, toast]);
 
   useEffect(() => { fetchRentals(); }, [fetchRentals]);
 

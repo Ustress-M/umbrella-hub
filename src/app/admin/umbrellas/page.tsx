@@ -15,11 +15,20 @@ const UmbrellasPage = () => {
 
   const fetchUmbrellas = useCallback(async () => {
     setIsLoading(true);
-    const res = await fetch("/api/admin/umbrellas");
-    const json = await res.json();
-    if (json.success) setUmbrellas(json.data);
-    setIsLoading(false);
-  }, []);
+    try {
+      const res = await fetch("/api/admin/umbrellas", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => ({ success: false, error: "응답을 읽을 수 없습니다" }));
+      if (json.success) setUmbrellas(json.data);
+      else toast({ title: json.error ?? "목록을 불러오지 못했습니다", variant: "destructive" });
+    } catch {
+      toast({ title: "네트워크 오류로 목록을 불러오지 못했습니다", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => { fetchUmbrellas(); }, [fetchUmbrellas]);
 

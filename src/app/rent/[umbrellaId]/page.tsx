@@ -78,9 +78,10 @@ const RentPage = async ({ params }: Props) => {
 
         <RentalForm umbrellaId={umbrella.id} umbrellaNumber={umbrella.number} />
 
-        <p className="text-xs text-gray-400 text-center">
-          당일 반납을 원칙으로 합니다.<br />
-          반납 시 우산의 QR을 다시 스캔해주세요.
+        <p className="text-xs text-gray-400 text-center leading-relaxed">
+          <strong>다음날 반납</strong>이 원칙입니다.<br />
+          다음날이 주말·공휴일이면 가장 빠른 평일에 반납해주세요.<br />
+          반납 시 우산의 QR 을 다시 스캔해주세요.
         </p>
       </div>
     </div>

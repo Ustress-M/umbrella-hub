@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { withNeonRetry } from "@/lib/db-retry";
 import { rentalListQuerySchema } from "@/lib/validations";
 import type { ApiResponse, RentalWithUmbrella } from "@/types";
 
@@ -27,16 +28,18 @@ export const GET = async (
 
   const { status, umbrellaNumber } = parsed.data;
 
-  const rentals = await db.rental.findMany({
-    where: {
-      ...(status ? { status } : {}),
-      ...(umbrellaNumber
-        ? { umbrella: { number: { contains: umbrellaNumber } } }
-        : {}),
-    },
-    include: { umbrella: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const rentals = await withNeonRetry("admin/rentals GET", () =>
+    db.rental.findMany({
+      where: {
+        ...(status ? { status } : {}),
+        ...(umbrellaNumber
+          ? { umbrella: { number: { contains: umbrellaNumber } } }
+          : {}),
+      },
+      include: { umbrella: true },
+      orderBy: { createdAt: "desc" },
+    })
+  );
 
   return NextResponse.json({ success: true, data: rentals });
 };

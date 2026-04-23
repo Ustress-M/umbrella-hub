@@ -10,7 +10,10 @@ const DashboardPage = async () => {
   if (!session) redirect("/admin");
 
   // API를 거치지 않고 DB 쿼리 함수를 직접 호출 (쿠키 전달 문제 없음)
-  const stats = await getStats().catch(() => null);
+  const stats = await getStats().catch((e) => {
+    console.error("[dashboard] getStats failed", e);
+    return null;
+  });
 
   if (!stats) {
     return (

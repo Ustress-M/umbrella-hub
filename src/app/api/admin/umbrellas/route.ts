@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { withNeonRetry } from "@/lib/db-retry";
 import { addUmbrellaSchema } from "@/lib/validations";
 import { generateQRDataUrl, getRentUrl, getBaseUrl } from "@/lib/utils";
 import type { ApiResponse } from "@/types";
@@ -12,9 +13,11 @@ export const GET = async (): Promise<NextResponse<ApiResponse<Umbrella[]>>> => {
     return NextResponse.json({ success: false, error: "인증이 필요합니다" }, { status: 401 });
   }
 
-  const umbrellas = await db.umbrella.findMany({
-    orderBy: { number: "asc" },
-  });
+  const umbrellas = await withNeonRetry("admin/umbrellas GET", () =>
+    db.umbrella.findMany({
+      orderBy: { number: "asc" },
+    })
+  );
 
   return NextResponse.json({ success: true, data: umbrellas });
 };
