@@ -23,6 +23,8 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+# Neon 등 원격 Postgres 연결 시 IPv6 우선 DNS 가 ETIMEDOUT 을 유발하는 환경 대응
+ENV NODE_OPTIONS=--dns-result-order=ipv4first
 ENV PORT=3000
 # Next.js 16 standalone 은 HOSTNAME env 를 바인딩 인터페이스로 사용함.
 # Docker 는 기본적으로 HOSTNAME 을 컨테이너 ID 로 덮어써서, 내부 127.0.0.1

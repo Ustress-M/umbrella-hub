@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withNeonRetry } from "@/lib/db-retry";
 import type { ApiResponse } from "@/types";
 import type { Umbrella } from "@/generated/prisma/client";
 
@@ -9,9 +10,11 @@ export const GET = async (
 ): Promise<NextResponse<ApiResponse<Umbrella>>> => {
   const { id } = await params;
 
-  const umbrella = await db.umbrella.findUnique({
-    where: { id },
-  });
+  const umbrella = await withNeonRetry("api/umbrellas/[id]", () =>
+    db.umbrella.findUnique({
+      where: { id },
+    })
+  );
 
   if (!umbrella) {
     return NextResponse.json(

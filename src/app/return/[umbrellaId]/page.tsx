@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { withNeonRetry } from "@/lib/db-retry";
 import { Umbrella } from "lucide-react";
 import { ReturnForm } from "@/components/student/ReturnForm";
 
@@ -25,9 +26,11 @@ const UnavailableMessage = ({ emoji, title, description }: UnavailableMessagePro
 
 const ReturnPage = async ({ params }: Props) => {
   const { umbrellaId } = await params;
-  const umbrella = await db.umbrella.findUnique({
-    where: { id: umbrellaId },
-  });
+  const umbrella = await withNeonRetry("return/umbrella", () =>
+    db.umbrella.findUnique({
+      where: { id: umbrellaId },
+    })
+  );
 
   if (!umbrella) notFound();
 

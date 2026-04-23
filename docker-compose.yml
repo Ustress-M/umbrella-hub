@@ -11,6 +11,9 @@ services:
     env_file:
       - .env.production
     environment:
+      # VPS → Neon 시 AAAA(IPv6) 가 먼저 선택되면 연결이 ETIMEDOUT 으로 끊기는 경우가 있음.
+      # IPv4 를 우선해 안정화 (Node 18+).
+      NODE_OPTIONS: --dns-result-order=ipv4first
       # bcrypt 해시에는 `$` 가 섞여있어 env_file 파서나 쉘에서 손상되기 쉬움.
       # 대신 Compose 자동 로드 파일 (docker-compose.yml 과 같은 폴더의 .env)
       # 에 ADMIN_PASSWORD_HASH 를 둬서 그 값이 그대로 컨테이너에 주입되게 한다.

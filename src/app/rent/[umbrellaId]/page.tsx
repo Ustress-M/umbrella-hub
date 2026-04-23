@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { withNeonRetry } from "@/lib/db-retry";
 import { Umbrella } from "lucide-react";
 import { RentalForm } from "@/components/student/RentalForm";
 import { ReturnForm } from "@/components/student/ReturnForm";
@@ -16,9 +17,11 @@ interface Props {
 // "QR 을 다시 스캔해 반납" 이라는 기존 UX 메시지를 실제로 구현.
 const RentPage = async ({ params }: Props) => {
   const { umbrellaId } = await params;
-  const umbrella = await db.umbrella.findUnique({
-    where: { id: umbrellaId },
-  });
+  const umbrella = await withNeonRetry("rent/umbrella", () =>
+    db.umbrella.findUnique({
+      where: { id: umbrellaId },
+    })
+  );
 
   if (!umbrella) notFound();
 

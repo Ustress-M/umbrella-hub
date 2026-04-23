@@ -20,7 +20,8 @@ const pool =
   new Pool({
     connectionString,
     max: Number(process.env.PG_POOL_MAX ?? 10),
-    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS ?? 20_000),
+    // Neon compute 웨이크업 + TLS 핸드셰이크에 20초는 부족한 경우가 있음 (ETIMEDOUT).
+    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS ?? 60_000),
     idleTimeoutMillis: 30_000,
     allowExitOnIdle: false,
   });

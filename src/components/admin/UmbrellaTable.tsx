@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { QrCode, Trash2, Settings } from "lucide-react";
-import { cn, umbrellaStatusLabel, getRentUrl } from "@/lib/utils";
+import { QrCode, Trash2 } from "lucide-react";
+import { cn, umbrellaStatusLabel } from "@/lib/utils";
 import { QRModal } from "@/components/admin/QRModal";
 import type { Umbrella } from "@/generated/prisma/client";
 
@@ -40,8 +40,9 @@ const UmbrellaTable = ({ umbrellas, isLoading, onStatusChange, onDelete }: Props
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl shadow-sm">
+        <div className="min-w-[36rem] overflow-hidden rounded-2xl bg-white md:min-w-0">
+          <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               {["우산 번호", "상태", "QR코드", "상태 변경", "삭제"].map((h) => (
@@ -62,8 +63,9 @@ const UmbrellaTable = ({ umbrellas, isLoading, onStatusChange, onDelete }: Props
                 </td>
                 <td className="px-4 py-3">
                   <button
+                    type="button"
                     onClick={() => setQrUmbrella(u)}
-                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                    className="flex min-h-10 items-center gap-1 rounded-lg px-1 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-800 active:bg-blue-100"
                   >
                     <QrCode size={14} />
                     QR 보기
@@ -73,7 +75,7 @@ const UmbrellaTable = ({ umbrellas, isLoading, onStatusChange, onDelete }: Props
                   <select
                     value={u.status}
                     onChange={(e) => onStatusChange(u.id, e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="min-h-10 max-w-[7.5rem] rounded-lg border border-gray-200 px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="AVAILABLE">대여가능</option>
                     <option value="RENTED">대여중</option>
@@ -82,16 +84,19 @@ const UmbrellaTable = ({ umbrellas, isLoading, onStatusChange, onDelete }: Props
                 </td>
                 <td className="px-4 py-3">
                   <button
+                    type="button"
                     onClick={() => onDelete(u.id)}
-                    className="text-red-400 hover:text-red-600 transition-colors"
+                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 active:bg-red-100"
+                    aria-label="삭제"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={18} />
                   </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {qrUmbrella && (

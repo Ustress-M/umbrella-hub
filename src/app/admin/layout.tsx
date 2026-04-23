@@ -1,4 +1,4 @@
-import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminAppShell } from "@/components/admin/AdminAppShell";
 import { SessionProviderWrapper } from "@/components/admin/SessionProviderWrapper";
 
 // 관리자 페이지는 절대 캐시/정적 렌더링되면 안 됨.
@@ -12,10 +12,7 @@ export const fetchCache = "force-no-store";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => (
   <SessionProviderWrapper>
-    <div className="min-h-screen bg-gray-100 flex">
-      <AdminSidebar />
-      <main className="flex-1 p-6 overflow-auto">{children}</main>
-    </div>
+    <AdminAppShell>{children}</AdminAppShell>
   </SessionProviderWrapper>
 );
 

@@ -29,15 +29,23 @@ const QRModal = ({ umbrella, onClose }: Props) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 max-w-xs w-full space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center sm:p-4">
+      <div
+        className="max-h-[90dvh] w-full max-w-xs overflow-y-auto rounded-2xl bg-white p-5 space-y-4 shadow-xl"
+        style={{ marginBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <h3 className="font-bold text-gray-800">우산 {umbrella.number}번 QR</h3>
             <p className="text-xs text-gray-500 mt-0.5">대여·반납 겸용</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={20} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 active:bg-gray-200"
+            aria-label="닫기"
+          >
+            <X size={22} />
           </button>
         </div>
 
@@ -60,9 +68,10 @@ const QRModal = ({ umbrella, onClose }: Props) => {
         </div>
 
         <button
+          type="button"
           onClick={handleDownload}
           disabled={!qrDataUrl}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 active:bg-blue-800"
         >
           <Download size={16} />
           PNG 다운로드
