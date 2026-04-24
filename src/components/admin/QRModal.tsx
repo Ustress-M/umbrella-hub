@@ -15,7 +15,9 @@ interface Props {
 // 한 장만 부착하면 됨.
 const QRModal = ({ umbrella, onClose }: Props) => {
   const [qrDataUrl, setQrDataUrl] = useState("");
-  const qrUrl = getRentUrl(window.location.origin, umbrella.id);
+  // number 기반 단축 URL 사용 — 동일 QR 크기에서 모듈이 커져 인식률 개선.
+  // /r/[key] 라우트가 number → id 순으로 해석하므로 기존 QR 도 호환됨.
+  const qrUrl = getRentUrl(window.location.origin, umbrella.number);
 
   useEffect(() => {
     generateQRDataUrl(qrUrl).then(setQrDataUrl);

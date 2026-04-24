@@ -54,7 +54,7 @@ export const POST = async (
     data: { number: parsed.data.number },
   });
 
-  const rentUrl = getRentUrl(getBaseUrl(), umbrella.id);
+  const rentUrl = getRentUrl(getBaseUrl(), umbrella.number);
   const qrDataUrl = await generateQRDataUrl(rentUrl);
 
   return NextResponse.json(

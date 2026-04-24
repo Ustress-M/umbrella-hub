@@ -44,8 +44,12 @@ export const generateQRDataUrl = async (url: string, width = 512): Promise<strin
   });
 };
 
-export const getRentUrl = (baseUrl: string, umbrellaId: string): string =>
-  `${baseUrl}/rent/${umbrellaId}`;
+// QR 에 인쇄되는 URL. 짧을수록 QR 모듈이 커져 곡면·저해상도 인식률이 상승.
+// 신규 QR 은 /r/{number} 로 단축 (예: /r/001). /r/[key] 라우트가
+// number → id 순서로 해석하고, 기존에 배포된 /rent/{cuid} QR 도 계속 동작.
+// key 는 DB 에 저장된 사용자 입력이므로 안전을 위해 URL 인코딩.
+export const getRentUrl = (baseUrl: string, numberOrId: string): string =>
+  `${baseUrl}/r/${encodeURIComponent(numberOrId)}`;
 
 export const getReturnUrl = (baseUrl: string, umbrellaId: string): string =>
   `${baseUrl}/return/${umbrellaId}`;

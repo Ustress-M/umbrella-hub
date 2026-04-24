@@ -76,7 +76,7 @@ const PrintPage = () => {
       const generated = await Promise.all(
         umbrellas.map(async (u) => ({
           umbrella: u,
-          dataUrl: await generateQRDataUrl(getRentUrl(origin, u.id), qrPx),
+          dataUrl: await generateQRDataUrl(getRentUrl(origin, u.number), qrPx),
         }))
       );
       setItems(generated);

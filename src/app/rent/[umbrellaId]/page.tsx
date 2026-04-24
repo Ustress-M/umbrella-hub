@@ -9,12 +9,15 @@ interface Props {
   params: Promise<{ umbrellaId: string }>;
 }
 
-// 우산에 부착된 단일 QR 코드가 이 라우트를 가리킨다.
-// 학생이 스캔했을 때 우산의 현재 상태에 따라:
+// 우산 단일 QR 의 최종 렌더 라우트. 학생이 스캔했을 때 우산 상태에 따라:
 //   - AVAILABLE  → 대여 폼
 //   - RENTED     → 반납 폼 (본인 학번/이름 입력 시 반납 허용, API 가 소유자 검증)
 //   - MAINTENANCE → 점검 안내
 // "QR 을 다시 스캔해 반납" 이라는 기존 UX 메시지를 실제로 구현.
+//
+// 신규 QR 은 인식률을 위해 /r/[key] 단축 경로로 발급되며, 그 라우트는
+// number → id 순 해석 후 이 페이지로 redirect 한다.
+// 이 /rent/[umbrellaId] 경로는 이미 배포된 긴 URL QR 호환을 위해 유지.
 const RentPage = async ({ params }: Props) => {
   const { umbrellaId } = await params;
   const umbrella = await withNeonRetry("rent/umbrella", () =>
