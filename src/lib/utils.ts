@@ -34,11 +34,11 @@ export const calcDeleteAt = (returnedAt: Date): Date => {
 // 둥근 손잡이 등 곡면 부착 시 인식률 확보:
 // - errorCorrectionLevel 'H' 는 30% 손상 복구 가능 (기본 'M' 은 15%)
 // - margin 4 는 스캐너가 파인더 패턴을 잡기 위한 quiet zone
-// - width 512 는 인쇄 시 선명도 확보 (작게 출력해도 픽셀 뭉개짐 최소)
-export const generateQRDataUrl = async (url: string): Promise<string> => {
+// - width 기본 512 는 스크린용. 대형 인쇄/PNG 추출 시 1200+ 로 지정
+export const generateQRDataUrl = async (url: string, width = 512): Promise<string> => {
   return QRCode.toDataURL(url, {
     errorCorrectionLevel: "H",
-    width: 512,
+    width,
     margin: 4,
     color: { dark: "#000000", light: "#ffffff" },
   });
