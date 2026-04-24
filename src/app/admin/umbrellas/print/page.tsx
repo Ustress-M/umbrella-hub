@@ -1,24 +1,30 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Printer, ArrowLeft, Download, Loader2 } from "lucide-react";
+import { Printer, ArrowLeft, Download, Loader2, Check } from "lucide-react";
 import Link from "next/link";
 import { generateQRDataUrl, getRentUrl } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import type { Umbrella } from "@/generated/prisma/client";
 
 type QrItem = { umbrella: Umbrella; dataUrl: string };
+type Mode = "default" | "custom";
 
-const CAPTION = "QR코드로 대여 및 반납";
+const CAPTION = "대여 및 반납 겸용 QR코드";
 
-// 용지 200×300mm 기준 PNG 해상도: 6 px/mm (≈150 DPI)
-// → 캔버스 1200×1800, QR 영역 1200×1200, 텍스트 영역 1200×600
+// 기본 용지
+const DEFAULT_W_MM = 200;
+const DEFAULT_H_MM = 300;
+
+// 커스텀 입력 제한
+const MIN_MM = 30;
+const MAX_MM = 1000;
+
+// 캔버스/PNG 해상도: 6 px/mm (≈150 DPI)
 const PX_PER_MM = 6;
-const PNG_W = 200 * PX_PER_MM;
-const PNG_H = 300 * PX_PER_MM;
-const PNG_QR = 200 * PX_PER_MM;
-const PNG_META_Y = 200 * PX_PER_MM;
-const PNG_META_H = 100 * PX_PER_MM;
+
+const clampMm = (v: number): number =>
+  Number.isFinite(v) ? Math.max(MIN_MM, Math.min(MAX_MM, Math.round(v))) : MIN_MM;
 
 const PrintPage = () => {
   const [umbrellas, setUmbrellas] = useState<Umbrella[]>([]);
@@ -27,6 +33,17 @@ const PrintPage = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pngProgress, setPngProgress] = useState<{ current: number; total: number } | null>(null);
   const { toast } = useToast();
+
+  // 용지 설정 — "적용" 누를 때만 paperW/paperH 에 반영해 QR 재생성 폭주 방지
+  const [mode, setMode] = useState<Mode>("default");
+  const [widthInput, setWidthInput] = useState(String(DEFAULT_W_MM));
+  const [heightInput, setHeightInput] = useState(String(DEFAULT_H_MM));
+  const [paperW, setPaperW] = useState(DEFAULT_W_MM);
+  const [paperH, setPaperH] = useState(DEFAULT_H_MM);
+
+  const qrMm = Math.min(paperW, paperH);
+  const isPortrait = paperH >= paperW;
+  const orientationLabel = isPortrait ? "세로" : "가로";
 
   useEffect(() => {
     (async () => {
@@ -50,20 +67,21 @@ const PrintPage = () => {
     })();
   }, [toast]);
 
+  // QR 을 짧은 변 = 변 길이 로 맞춰 재생성
   useEffect(() => {
     if (umbrellas.length === 0) return;
     (async () => {
       const origin = window.location.origin;
-      // 1200px 고해상도 QR 생성 — 200mm 폭 인쇄 시 뭉개지지 않음
+      const qrPx = qrMm * PX_PER_MM;
       const generated = await Promise.all(
         umbrellas.map(async (u) => ({
           umbrella: u,
-          dataUrl: await generateQRDataUrl(getRentUrl(origin, u.id), PNG_QR),
+          dataUrl: await generateQRDataUrl(getRentUrl(origin, u.id), qrPx),
         }))
       );
       setItems(generated);
     })();
-  }, [umbrellas]);
+  }, [umbrellas, qrMm]);
 
   const selectedItems = useMemo(
     () => items.filter((i) => selectedIds.has(i.umbrella.id)),
@@ -82,66 +100,110 @@ const PrintPage = () => {
   const selectAll = () => setSelectedIds(new Set(umbrellas.map((u) => u.id)));
   const selectNone = () => setSelectedIds(new Set());
 
-  const renderLabelToBlob = useCallback(async (item: QrItem): Promise<Blob> => {
-    const canvas = document.createElement("canvas");
-    canvas.width = PNG_W;
-    canvas.height = PNG_H;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("캔버스 컨텍스트를 얻을 수 없습니다");
+  const applyDefault = () => {
+    setMode("default");
+    setPaperW(DEFAULT_W_MM);
+    setPaperH(DEFAULT_H_MM);
+    setWidthInput(String(DEFAULT_W_MM));
+    setHeightInput(String(DEFAULT_H_MM));
+  };
 
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, PNG_W, PNG_H);
-
-    const img = new Image();
-    img.src = item.dataUrl;
-    await img.decode();
-    // QR 은 픽셀 아트라 스무딩 끄면 에지가 선명하게 유지됨
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, PNG_QR, PNG_QR);
-
-    // 텍스트 영역: y = PNG_META_Y..PNG_H
-    ctx.fillStyle = "#111111";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    const fontStack = '"Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif';
-    const cx = PNG_W / 2;
-
-    // 우산 번호 — 크게, 텍스트 영역 상단 1/3 지점
-    const numberY = PNG_META_Y + PNG_META_H * 0.32;
-    ctx.font = `800 ${25 * PX_PER_MM}px ${fontStack}`;
-    ctx.fillText(`${item.umbrella.number}번`, cx, numberY);
-
-    // 캡션 — 작게, 필요 시 줄바꿈
-    const captionY = PNG_META_Y + PNG_META_H * 0.72;
-    const captionFontPx = 13 * PX_PER_MM;
-    ctx.font = `500 ${captionFontPx}px ${fontStack}`;
-    const captionMaxWidth = PNG_W - 20 * PX_PER_MM;
-    const words = CAPTION.split(" ");
-    const lines: string[] = [];
-    let current = "";
-    for (const w of words) {
-      const next = current ? `${current} ${w}` : w;
-      if (ctx.measureText(next).width > captionMaxWidth && current) {
-        lines.push(current);
-        current = w;
-      } else {
-        current = next;
-      }
+  const applyCustom = () => {
+    const w = clampMm(Number(widthInput));
+    const h = clampMm(Number(heightInput));
+    if (w === h) {
+      toast({
+        title: "가로/세로가 같으면 텍스트 공간이 없습니다",
+        variant: "destructive",
+      });
+      return;
     }
-    if (current) lines.push(current);
-    const lineGap = captionFontPx * 1.2;
-    const totalH = lineGap * lines.length;
-    const startY = captionY - totalH / 2 + lineGap / 2;
-    lines.forEach((line, i) => ctx.fillText(line, cx, startY + i * lineGap));
+    setMode("custom");
+    setPaperW(w);
+    setPaperH(h);
+    setWidthInput(String(w));
+    setHeightInput(String(h));
+  };
 
-    return new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error("PNG 인코딩 실패"));
-      }, "image/png");
-    });
-  }, []);
+  const renderLabelToBlob = useCallback(
+    async (item: QrItem): Promise<Blob> => {
+      const W = paperW * PX_PER_MM;
+      const H = paperH * PX_PER_MM;
+      const qrPx = Math.min(W, H);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("캔버스 컨텍스트를 얻을 수 없습니다");
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, W, H);
+
+      const img = new Image();
+      img.src = item.dataUrl;
+      await img.decode();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, qrPx, qrPx);
+
+      // 텍스트 영역: 세로 방향이면 QR 아래, 가로 방향이면 QR 오른쪽
+      const textX = isPortrait ? 0 : qrPx;
+      const textY = isPortrait ? qrPx : 0;
+      const textW = isPortrait ? W : W - qrPx;
+      const textH = isPortrait ? H - qrPx : H;
+
+      if (textW <= 0 || textH <= 0) {
+        return new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 인코딩 실패"))), "image/png");
+        });
+      }
+
+      ctx.fillStyle = "#111111";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const fontStack =
+        '"Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif';
+      const cx = textX + textW / 2;
+
+      // 폰트 크기 = 짧은 변(qrMm) 비례 — 기본 200mm 에서 25mm/13mm
+      const numberFontPx = (qrMm / 8) * PX_PER_MM;
+      const captionFontPx = (qrMm / 15) * PX_PER_MM;
+      const numberY = textY + textH * 0.32;
+      const captionY = textY + textH * 0.72;
+
+      ctx.font = `800 ${numberFontPx}px ${fontStack}`;
+      ctx.fillText(`${item.umbrella.number}번`, cx, numberY);
+
+      ctx.font = `500 ${captionFontPx}px ${fontStack}`;
+      const hPad = textW > 40 * PX_PER_MM ? 20 * PX_PER_MM : 4 * PX_PER_MM;
+      const captionMaxWidth = textW - hPad;
+      const words = CAPTION.split(" ");
+      const lines: string[] = [];
+      let current = "";
+      for (const w of words) {
+        const next = current ? `${current} ${w}` : w;
+        if (ctx.measureText(next).width > captionMaxWidth && current) {
+          lines.push(current);
+          current = w;
+        } else {
+          current = next;
+        }
+      }
+      if (current) lines.push(current);
+      const lineGap = captionFontPx * 1.2;
+      const totalH = lineGap * lines.length;
+      const startY = captionY - totalH / 2 + lineGap / 2;
+      lines.forEach((line, i) => ctx.fillText(line, cx, startY + i * lineGap));
+
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("PNG 인코딩 실패"));
+        }, "image/png");
+      });
+    },
+    [paperW, paperH, qrMm, isPortrait]
+  );
 
   const triggerDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -171,7 +233,6 @@ const PrintPage = () => {
         const blob = await renderLabelToBlob(item);
         triggerDownload(blob, `umbrella-${item.umbrella.number}.png`);
         setPngProgress({ current: i + 1, total: selectedItems.length });
-        // 브라우저 다운로드 큐 throttle 방지용 소량 지연
         await new Promise((r) => setTimeout(r, 80));
       }
       toast({ title: `${selectedItems.length}개 PNG 다운로드 완료` });
@@ -189,24 +250,31 @@ const PrintPage = () => {
     return <div className="p-6 text-gray-400">불러오는 중...</div>;
   }
 
+  const previewMaxPx = isPortrait ? 280 : 420;
+  const metaFontScale = qrMm; // 화면 폰트 clamp 는 cqw 기반이라 자동
+
   return (
     <div className="space-y-4">
+      {/*
+        @page 는 JS 변수 보간이 불가하므로 <style> 블록 전체를 템플릿 리터럴로
+        매 렌더마다 재작성. paperW/paperH 가 바뀌면 인쇄 규격이 즉시 갱신됨.
+      */}
       <style>{`
-        /* 화면 프리뷰: 200×300mm 비율을 유지하며 화면 폭에 맞게 축소 */
         .label-card {
           width: 100%;
-          max-width: 280px;
+          max-width: ${previewMaxPx}px;
           margin: 0 auto;
           background: white;
           border: 1px solid #e5e7eb;
           border-radius: 12px;
           overflow: hidden;
-          aspect-ratio: 2 / 3;
+          aspect-ratio: ${paperW} / ${paperH};
           display: flex;
-          flex-direction: column;
+          flex-direction: ${isPortrait ? "column" : "row"};
+          container-type: inline-size;
         }
         .label-qr-wrap {
-          width: 100%;
+          ${isPortrait ? "width: 100%;" : "height: 100%;"}
           aspect-ratio: 1 / 1;
           flex: 0 0 auto;
         }
@@ -228,28 +296,29 @@ const PrintPage = () => {
           word-break: keep-all;
         }
         .label-number {
-          font-size: clamp(24px, 9cqw, 72px);
+          font-size: clamp(18px, 9cqw, 72px);
           font-weight: 800;
           color: #111;
           line-height: 1;
         }
         .label-caption {
-          font-size: clamp(12px, 4.5cqw, 36px);
+          font-size: clamp(10px, 4.5cqw, 36px);
           color: #333;
           line-height: 1.25;
         }
 
         @media print {
-          @page { size: 200mm 300mm; margin: 0; }
+          @page { size: ${paperW}mm ${paperH}mm; margin: 0; }
           html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
           .no-print { display: none !important; }
           .label-stack { display: block !important; padding: 0 !important; gap: 0 !important; background: #fff !important; }
 
           .label-card {
-            width: 200mm !important;
-            max-width: 200mm !important;
-            height: 300mm !important;
+            width: ${paperW}mm !important;
+            max-width: ${paperW}mm !important;
+            height: ${paperH}mm !important;
             aspect-ratio: auto !important;
+            flex-direction: ${isPortrait ? "column" : "row"} !important;
             margin: 0 !important;
             border: none !important;
             border-radius: 0 !important;
@@ -260,19 +329,20 @@ const PrintPage = () => {
           }
           .label-card:last-child { page-break-after: auto; break-after: auto; }
           .label-qr-wrap {
-            width: 200mm !important;
-            height: 200mm !important;
+            width: ${qrMm}mm !important;
+            height: ${qrMm}mm !important;
             aspect-ratio: auto !important;
+            flex: 0 0 ${qrMm}mm !important;
           }
           .label-meta {
-            width: 200mm !important;
-            height: 100mm !important;
+            ${isPortrait ? `width: ${paperW}mm` : `width: ${Math.max(0, paperW - qrMm)}mm`} !important;
+            ${isPortrait ? `height: ${Math.max(0, paperH - qrMm)}mm` : `height: ${paperH}mm`} !important;
             flex: 0 0 auto !important;
-            padding: 8mm !important;
-            gap: 8mm !important;
+            padding: ${Math.max(4, qrMm * 0.04)}mm !important;
+            gap: ${Math.max(4, qrMm * 0.04)}mm !important;
           }
-          .label-number { font-size: 25mm !important; }
-          .label-caption { font-size: 13mm !important; }
+          .label-number { font-size: ${(qrMm / 8).toFixed(2)}mm !important; }
+          .label-caption { font-size: ${(qrMm / 15).toFixed(2)}mm !important; }
         }
       `}</style>
 
@@ -319,6 +389,80 @@ const PrintPage = () => {
           </div>
         </div>
 
+        {/* 용지 설정 */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="text-sm font-medium text-gray-800">용지 설정</div>
+            <div className="text-xs text-gray-500">
+              현재 적용 <strong className="text-gray-800">{paperW} × {paperH}mm</strong> · {orientationLabel} 방향 · QR {qrMm}mm
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+            <button
+              type="button"
+              onClick={applyDefault}
+              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                mode === "default"
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {mode === "default" && <Check size={14} />}
+              기본 200 × 300mm (세로)
+            </button>
+
+            <div
+              className={`flex-1 flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border text-sm ${
+                mode === "custom"
+                  ? "border-blue-500 bg-blue-50/30"
+                  : "border-gray-300 bg-white"
+              }`}
+            >
+              <span className="text-xs text-gray-500">사용자 지정</span>
+              <label className="flex items-center gap-1">
+                <span className="text-xs text-gray-600">가로</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_MM}
+                  max={MAX_MM}
+                  value={widthInput}
+                  onChange={(e) => setWidthInput(e.target.value)}
+                  className="w-20 border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-gray-500">mm</span>
+              </label>
+              <span className="text-gray-400">×</span>
+              <label className="flex items-center gap-1">
+                <span className="text-xs text-gray-600">세로</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_MM}
+                  max={MAX_MM}
+                  value={heightInput}
+                  onChange={(e) => setHeightInput(e.target.value)}
+                  className="w-20 border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-gray-500">mm</span>
+              </label>
+              <button
+                type="button"
+                onClick={applyCustom}
+                className="ml-auto bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-blue-700"
+              >
+                적용
+              </button>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-gray-500">
+            QR 크기는 짧은 변과 동일하게 자동 설정되고, 긴 변의 남는 영역에 우산 번호와 안내 문구가 배치됩니다 ({MIN_MM}–{MAX_MM}mm).
+          </p>
+        </div>
+
+        {/* 우산 선택 */}
         <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <div className="flex gap-2">
@@ -337,9 +481,7 @@ const PrintPage = () => {
                 전체 해제
               </button>
             </div>
-            <p className="text-xs text-gray-500 ml-auto">
-              라벨 규격 200 × 300mm · 1장당 우산 1개 (QR 200 × 200 + 텍스트 100mm)
-            </p>
+            <p className="text-xs text-gray-500 ml-auto">선택 {selectedIds.size} / 전체 {umbrellas.length}</p>
           </div>
 
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -364,30 +506,24 @@ const PrintPage = () => {
         </div>
 
         <div className="bg-amber-50 rounded-xl p-4 text-sm text-amber-800 space-y-1.5">
-          <p className="font-medium">인쇄 설정</p>
+          <p className="font-medium">인쇄 대화상자 권장 설정</p>
           <ul className="list-disc list-inside text-xs space-y-0.5 text-amber-700">
-            <li>브라우저 인쇄 대화상자에서 용지 크기를 <strong>사용자 지정 200 × 300mm</strong> 로 설정</li>
+            <li>
+              용지 크기: <strong>사용자 지정 {paperW} × {paperH}mm</strong> ({orientationLabel})
+            </li>
             <li>여백 <strong>없음</strong>, 배율 <strong>100% (실제 크기)</strong></li>
-            <li>&quot;배경 그래픽&quot; 옵션은 끄지 않아도 무방 (흰 배경)</li>
           </ul>
         </div>
       </div>
 
-      <div
-        className="label-stack flex flex-col items-center gap-6"
-        style={{ containerType: "inline-size" }}
-      >
+      <div className="label-stack flex flex-col items-center gap-6" style={{ fontSize: metaFontScale }}>
         {selectedItems.length === 0 ? (
           <div className="no-print bg-white rounded-2xl shadow-sm text-center text-gray-400 py-10 text-sm w-full">
             선택된 QR이 없습니다
           </div>
         ) : (
           selectedItems.map(({ umbrella, dataUrl }) => (
-            <div
-              key={umbrella.id}
-              className="label-card"
-              style={{ containerType: "inline-size" }}
-            >
+            <div key={umbrella.id} className="label-card">
               <div className="label-qr-wrap">
                 <img src={dataUrl} alt={`QR ${umbrella.number}`} />
               </div>
