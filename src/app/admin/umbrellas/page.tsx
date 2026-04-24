@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Printer } from "lucide-react";
+import Link from "next/link";
 import { UmbrellaTable } from "@/components/admin/UmbrellaTable";
 import { AddUmbrellaModal } from "@/components/admin/AddUmbrellaModal";
 import { useToast } from "@/components/ui/use-toast";
@@ -61,15 +62,24 @@ const UmbrellasPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-800">우산 관리</h1>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-        >
-          <Plus size={16} />
-          우산 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/umbrellas/print"
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+          >
+            <Printer size={16} />
+            QR 일괄 인쇄
+          </Link>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <Plus size={16} />
+            우산 추가
+          </button>
+        </div>
       </div>
 
       <UmbrellaTable
