@@ -21,7 +21,7 @@ export const GET = async (req: NextRequest): Promise<NextResponse> => {
       returnPhotoUrl: { not: null },
       OR: [
         { deleteAt: { lte: now } },
-        { deleteAt: null, returnedAt: { lte: legacyCutoff } },
+        { deleteAt: null, createdAt: { lte: legacyCutoff } },
       ],
     },
     select: { id: true, returnPhotoUrl: true },

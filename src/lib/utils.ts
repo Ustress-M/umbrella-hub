@@ -24,20 +24,17 @@ export const formatDateOnly = (date: Date | string | null): string => {
   }).format(new Date(date));
 };
 
-export const getPhotoRetentionDays = (): number =>
-  Number(process.env.DELETE_AFTER_DAYS ?? 7);
-
-/** 반납 사진 R2 삭제 예정 시각 (대여 기록은 유지) */
-export const calcDeleteAt = (returnedAt: Date): Date => {
-  const deleteAt = new Date(returnedAt);
-  deleteAt.setDate(deleteAt.getDate() + getPhotoRetentionDays());
+/** 반납 사진 R2 삭제 예정 시각: 대여일(createdAt) 기준 1개월 후 */
+export const calcDeleteAt = (rentedAt: Date): Date => {
+  const deleteAt = new Date(rentedAt);
+  deleteAt.setMonth(deleteAt.getMonth() + 1);
   return deleteAt;
 };
 
-/** deleteAt 미설정 구 레코드용: 이 시각 이전 반납분은 사진 삭제 대상 */
+/** deleteAt 미설정 구 레코드용: 대여일 기준 1개월 경과분 */
 export const calcPhotoExpiryCutoff = (): Date => {
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - getPhotoRetentionDays());
+  cutoff.setMonth(cutoff.getMonth() - 1);
   return cutoff;
 };
 

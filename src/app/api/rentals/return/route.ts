@@ -79,7 +79,7 @@ export const POST = async (
           status: "RETURNED",
           returnPhotoUrl: photoUrl,
           returnedAt,
-          deleteAt: calcDeleteAt(returnedAt),
+          deleteAt: calcDeleteAt(rental.createdAt),
         },
       }),
       tx.umbrella.update({
