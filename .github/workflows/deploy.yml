@@ -197,4 +197,14 @@ jobs:
             # 3) 오래된 이미지 정리
             docker image prune -f
 
+            # 4) 반납 사진 자동 삭제 cron (미등록·플레이스홀더 시 스킵)
+            CRON_SECRET=$(grep '^CRON_SECRET=' .env.production | sed 's/^CRON_SECRET=//' | tr -d '"')
+            if [ -n "${CRON_SECRET}" ] && [ "${CRON_SECRET}" != "your-cron-secret-here" ]; then
+              CRON_LINE="0 15 * * * curl -fsS -H \"Authorization: Bearer ${CRON_SECRET}\" https://umbrella.project-ms.kr/api/cron/cleanup >> /var/log/cron-cleanup.log 2>&1"
+              ( crontab -l 2>/dev/null | grep -v '/api/cron/cleanup' || true; echo "${CRON_LINE}" ) | crontab -
+              echo "✅ crontab 등록 완료"
+            else
+              echo "⚠ CRON_SECRET 미설정 — crontab 스킵 (.env.production 확인)"
+            fi
+
             echo "✅ 배포 완료: $(date)"
