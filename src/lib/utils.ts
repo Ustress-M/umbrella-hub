@@ -24,11 +24,21 @@ export const formatDateOnly = (date: Date | string | null): string => {
   }).format(new Date(date));
 };
 
+export const getPhotoRetentionDays = (): number =>
+  Number(process.env.DELETE_AFTER_DAYS ?? 7);
+
+/** 반납 사진 R2 삭제 예정 시각 (대여 기록은 유지) */
 export const calcDeleteAt = (returnedAt: Date): Date => {
-  const days = Number(process.env.DELETE_AFTER_DAYS ?? 7);
   const deleteAt = new Date(returnedAt);
-  deleteAt.setDate(deleteAt.getDate() + days);
+  deleteAt.setDate(deleteAt.getDate() + getPhotoRetentionDays());
   return deleteAt;
+};
+
+/** deleteAt 미설정 구 레코드용: 이 시각 이전 반납분은 사진 삭제 대상 */
+export const calcPhotoExpiryCutoff = (): Date => {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - getPhotoRetentionDays());
+  return cutoff;
 };
 
 // 둥근 손잡이 등 곡면 부착 시 인식률 확보:

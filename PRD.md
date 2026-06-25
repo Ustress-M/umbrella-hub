@@ -356,7 +356,7 @@ export const config = { matcher: ["/admin/:path+"] };
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| `GET` | `/api/cron/cleanup` | `Authorization: Bearer {CRON_SECRET}` 검증 후 만료 데이터 삭제 |
+| `GET` | `/api/cron/cleanup` | `Authorization: Bearer {CRON_SECRET}` 검증 후 만료 반납 사진(R2) 삭제 |
 
 ---
 
@@ -371,9 +371,9 @@ export const config = { matcher: ["/admin/:path+"] };
 ```
 
 **처리 로직:**
-1. `deleteAt <= now()` 인 Rental 레코드 조회
+1. `returnPhotoUrl` 이 있고, `deleteAt <= now()` (또는 구 레코드는 `returnedAt + DELETE_AFTER_DAYS` 경과) 인 Rental 조회
 2. `returnPhotoUrl` → Cloudflare R2에서 파일 삭제
-3. Rental 레코드 DB에서 삭제
+3. Rental 레코드는 유지, `returnPhotoUrl`·`deleteAt` 만 null 로 갱신
 4. 삭제 건수 로그 기록 (성공/실패 분리)
 
 ---

@@ -527,7 +527,7 @@ docker logs umbrella-hub --tail=50
 
 ## 12. 자동 삭제 Cron 설정
 
-반납 완료 후 지정 일수가 지난 데이터를 매일 호출로 정리합니다. (일수는 `DELETE_AFTER_DAYS`)
+반납 완료 후 지정 일수가 지난 **반납 사진(R2)** 을 매일 호출로 정리합니다. 대여 기록(일시·학생 정보)은 유지됩니다. (일수는 `DELETE_AFTER_DAYS`)
 
 ```bash
 crontab -e
