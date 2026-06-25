@@ -24,14 +24,14 @@ export const formatDateOnly = (date: Date | string | null): string => {
   }).format(new Date(date));
 };
 
-/** 반납 사진 R2 삭제 예정 시각: 대여일(createdAt) 기준 1개월 후 */
-export const calcDeleteAt = (rentedAt: Date): Date => {
-  const deleteAt = new Date(rentedAt);
+/** 반납 사진 R2 삭제 예정 시각: 반납일(returnedAt) 기준 1개월 후 */
+export const calcDeleteAt = (returnedAt: Date): Date => {
+  const deleteAt = new Date(returnedAt);
   deleteAt.setMonth(deleteAt.getMonth() + 1);
   return deleteAt;
 };
 
-/** deleteAt 미설정 구 레코드용: 대여일 기준 1개월 경과분 */
+/** deleteAt 미설정 구 레코드용: 반납일 기준 1개월 경과분 */
 export const calcPhotoExpiryCutoff = (): Date => {
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - 1);
