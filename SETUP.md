@@ -213,7 +213,6 @@ AUTH_SECRET="랜덤 문자열 (예: openssl rand -base64 32 — Windows에서는
 NEXTAUTH_URL="http://localhost:3000"
 ADMIN_ID="관리자 로그인 ID"
 ADMIN_PASSWORD_HASH=""           ← 다음 단계에서 생성
-DELETE_AFTER_DAYS="7"
 MAX_UPLOAD_SIZE_MB="5"
 CRON_SECRET="랜덤 문자열"
 ```
@@ -527,7 +526,7 @@ docker logs umbrella-hub --tail=50
 
 ## 12. 자동 삭제 Cron 설정
 
-반납 완료 후 지정 일수가 지난 **반납 사진(R2)** 을 매일 호출로 정리합니다. 대여 기록(일시·학생 정보)은 유지됩니다. (일수는 `DELETE_AFTER_DAYS`)
+반납 완료 후 **1개월이 지난 반납 사진(R2)** 을 매일 호출로 정리합니다. 대여 기록(일시·학생 정보)은 유지됩니다.
 
 ```bash
 crontab -e
@@ -630,7 +629,6 @@ docker compose up -d --no-deps app
 | `ADMIN_ID`                 | ✅   | 관리자 ID                |                             |
 | `ADMIN_PASSWORD_HASH`      | ✅   | bcrypt 해시             | `$2a$12$...`                |
 | `CRON_SECRET`              | ✅   | Cron API 보호           | 무작위 hex 문자열 등               |
-| `DELETE_AFTER_DAYS`        | —   | 반납 후 보관 일수            | `7`                         |
 | `SESSION_LIFETIME_SECONDS` | —   | 관리자 세션(초), 기본 7200    | `7200`                      |
 | `MAX_UPLOAD_SIZE_MB`       | —   | 업로드 상한                | `5`                         |
 

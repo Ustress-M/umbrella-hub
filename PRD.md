@@ -113,7 +113,7 @@
 ⑤ 서버 처리
    - Cloudflare R2에 사진 저장
    - Rental.status → RETURNED, returnedAt 기록
-   - deleteAt = returnedAt + 7일
+   - deleteAt = returnedAt + 1개월
    - Umbrella.status → AVAILABLE
          ↓
 ⑥ "반납 완료!" 감사 화면
@@ -184,7 +184,7 @@
 | QR 코드 생성 | `qrcode` 라이브러리, 우산별 `/rent/[id]` URL로 생성 |
 | 반응형 UI | 모바일 우선 (학생은 스마트폰으로 사용) |
 | 로고 | `/public/logo.png` — 모든 페이지 헤더 |
-| 자동 삭제 | 반납 후 7일: VPS crontab → `/api/cron/cleanup` 호출 |
+| 자동 삭제 | 반납 후 1개월: VPS crontab → `/api/cron/cleanup` 호출 |
 | Health Check | `/api/health` — Docker healthcheck 연동 |
 | 토스트 알림 | Radix UI Toast, 성공/실패 피드백 |
 
@@ -206,7 +206,7 @@ Frontend / Backend
 │     └── Prisma ORM              — 타입 안전 쿼리
 ├── Cloudflare R2                 — 반납 사진 (S3 호환 API)
 │     └── @aws-sdk/client-s3      — 업로드/삭제
-└── VPS crontab                   — 7일 자동 삭제 스케줄
+└── VPS crontab                   — 1개월 자동 삭제 스케줄
 
 배포
 ├── Hetzner CX22 (Ubuntu 24.04)
@@ -245,7 +245,7 @@ model Rental {
   note           String?                   // 관리자 메모
   createdAt      DateTime     @default(now())
   returnedAt     DateTime?
-  deleteAt       DateTime?                 // returnedAt + DELETE_AFTER_DAYS
+  deleteAt       DateTime?                 // returnedAt + 1개월
 
   @@index([umbrellaId])
   @@index([studentId, studentName])
@@ -371,7 +371,7 @@ export const config = { matcher: ["/admin/:path+"] };
 ```
 
 **처리 로직:**
-1. `returnPhotoUrl` 이 있고, `deleteAt <= now()` (또는 구 레코드는 `returnedAt + DELETE_AFTER_DAYS` 경과) 인 Rental 조회
+1. `returnPhotoUrl` 이 있고, `deleteAt <= now()` (또는 구 레코드는 `returnedAt + 1개월` 경과) 인 Rental 조회
 2. `returnPhotoUrl` → Cloudflare R2에서 파일 삭제
 3. Rental 레코드는 유지, `returnPhotoUrl`·`deleteAt` 만 null 로 갱신
 4. 삭제 건수 로그 기록 (성공/실패 분리)
@@ -400,7 +400,6 @@ ADMIN_ID="sannamgo"
 ADMIN_PASSWORD_HASH="bcrypt hash of password"   # node scripts/setup-admin-hash.js <pw>
 
 # 설정값
-DELETE_AFTER_DAYS="7"
 SESSION_LIFETIME_SECONDS="7200"
 MAX_UPLOAD_SIZE_MB="5"
 
